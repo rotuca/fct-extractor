@@ -1,16 +1,25 @@
 // ==UserScript==
 // @name         Extractor FCT → DOCX
 // @namespace    https://github.com/TU_USUARIO/fct-extractor
-// @version      1.0.0
+// @version      1.1.0
 // @description  Extrae los diarios FCT del aula virtual y genera un DOCX con análisis de calidad
-// @author       Roberto Tubilleja Calvo
+// @author       Manuel Alamar y Roberto Tubilleja Calvo 
 // @match        *://*/*
-// @grant        none
+// @grant        GM_registerMenuCommand
 // @require      https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js
 // ==/UserScript==
 
-(async function () {
+(function () {
   'use strict';
+
+  // Registra el comando en el menú de Tampermonkey.
+  // El panel solo aparece cuando el usuario hace clic aquí, nunca solo.
+  GM_registerMenuCommand('📋 Abrir Extractor FCT', function () {
+    if (document.getElementById('fct-panel')) return; // ya está abierto
+    iniciarExtractor();
+  });
+
+  function iniciarExtractor() {
 
   // ── Panel flotante ─────────────────────────────────────────────────────────
   function crearPanel() {
@@ -98,22 +107,6 @@
       cerrar: () => panel.remove()
     };
   }
-
-  const ui = crearPanel();
-  ui.log('Panel listo. Haz clic en "Extraer" para comenzar.');
-
-  document.getElementById('fct-cerrar').onclick = ui.cerrar;
-
-  // ── Esperar al botón ───────────────────────────────────────────────────────
-  ui.btnExtract.addEventListener('click', async () => {
-    ui.btnExtract.disabled = true;
-    ui.btnExtract.style.background = '#1e2840';
-    ui.btnExtract.style.color = '#3a4560';
-    await extraer(ui);
-    ui.btnExtract.disabled = false;
-    ui.btnExtract.style.background = '#2563eb';
-    ui.btnExtract.style.color = '#fff';
-  });
 
   // ── Función principal ──────────────────────────────────────────────────────
   async function extraer(ui) {
@@ -560,6 +553,22 @@
       ui.setEstado('Error al generar el DOCX: ' + e.message, 'error');
       ui.log('ERROR: ' + e.message, 'error');
     }
-  }
+  } // fin extraer()
+
+  // Arrancar el panel e inyectar eventos
+  const ui = crearPanel();
+  ui.log('Panel listo. Haz clic en "Extraer" para comenzar.');
+  document.getElementById('fct-cerrar').onclick = ui.cerrar;
+  ui.btnExtract.addEventListener('click', async () => {
+    ui.btnExtract.disabled = true;
+    ui.btnExtract.style.background = '#1e2840';
+    ui.btnExtract.style.color = '#3a4560';
+    await extraer(ui);
+    ui.btnExtract.disabled = false;
+    ui.btnExtract.style.background = '#2563eb';
+    ui.btnExtract.style.color = '#fff';
+  });
+
+  } // fin iniciarExtractor()
 
 })();
