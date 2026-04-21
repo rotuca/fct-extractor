@@ -4,6 +4,7 @@
 // @version      1.1
 // @description  Exporta diarios FCT a DOCX o RTF desde el listado de FCTs
 // @match        *://foremp.edu.gva.es/*
+// @author         Manuel Alamar y Roberto Tubilleja
 // @grant        none
 // ==/UserScript==
 
