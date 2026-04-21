@@ -412,9 +412,13 @@
             log("Generando documento");
 
             async function generarDocx(datos, analisis) {
-                await loadScript("https://unpkg.com/jszip@3.10.1/dist/jszip.min.js");
+    log("Cargando JSZip...");
+    await loadScript("https://unpkg.com/jszip@3.10.1/dist/jszip.min.js");
+    log("JSZip cargado.");
 
-                const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    log("Construyendo XML del documento...");
+
+    const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:docDefaults><w:rPrDefault><w:rPr>
     <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
@@ -426,81 +430,76 @@
   </w:style>
   <w:style w:type="paragraph" w:styleId="H1">
     <w:name w:val="heading 1"/><w:basedOn w:val="Normal"/>
-    <w:pPr><w:spacing w:before="0" w:after="160"/>
-      <w:pBdr><w:bottom w:val="single" w:sz="8" w:space="4" w:color="1F3864"/></w:pBdr>
-    </w:pPr>
-    <w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:color w:val="1F3864"/><w:sz w:val="40"/></w:rPr>
+    <w:pPr><w:spacing w:before="0" w:after="160"/></w:pPr>
+    <w:rPr><w:b/><w:color w:val="1F3864"/><w:sz w:val="40"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="H2">
     <w:name w:val="heading 2"/><w:basedOn w:val="Normal"/>
-    <w:pPr><w:spacing w:before="200" w:after="80"/>
-      <w:shd w:val="clear" w:color="auto" w:fill="D9E1F2"/>
-    </w:pPr>
-    <w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:color w:val="2E4B8C"/><w:sz w:val="26"/></w:rPr>
+    <w:pPr><w:spacing w:before="200" w:after="80"/></w:pPr>
+    <w:rPr><w:b/><w:color w:val="2E4B8C"/><w:sz w:val="26"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="H3">
     <w:name w:val="heading 3"/><w:basedOn w:val="Normal"/>
     <w:pPr><w:spacing w:before="140" w:after="60"/></w:pPr>
-    <w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:i/><w:color w:val="333355"/><w:sz w:val="22"/></w:rPr>
-  </w:style>
-  <w:style w:type="paragraph" w:styleId="Campo">
-    <w:name w:val="Campo"/><w:basedOn w:val="Normal"/>
-    <w:pPr><w:spacing w:before="40" w:after="40"/><w:ind w:left="440"/></w:pPr>
-    <w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="20"/></w:rPr>
-  </w:style>
-  <w:style w:type="paragraph" w:styleId="Titulo">
-    <w:name w:val="Titulo"/><w:basedOn w:val="Normal"/>
-    <w:pPr><w:spacing w:before="0" w:after="200"/><w:jc w:val="center"/></w:pPr>
-    <w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:color w:val="1F3864"/><w:sz w:val="52"/></w:rPr>
-  </w:style>
-  <w:style w:type="paragraph" w:styleId="Subtitulo">
-    <w:name w:val="Subtitulo"/><w:basedOn w:val="Normal"/>
-    <w:pPr><w:spacing w:before="0" w:after="80"/><w:jc w:val="center"/></w:pPr>
-    <w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="555577"/><w:sz w:val="24"/></w:rPr>
+    <w:rPr><w:b/><w:i/><w:color w:val="333355"/><w:sz w:val="22"/></w:rPr>
   </w:style>
 </w:styles>`;
 
-                const borde = `<w:top w:val="single" w:sz="4" w:space="0" w:color="AAAACC"/>
-<w:bottom w:val="single" w:sz="4" w:space="0" w:color="AAAACC"/>
-<w:left w:val="single" w:sz="4" w:space="0" w:color="AAAACC"/>
-<w:right w:val="single" w:sz="4" w:space="0" w:color="AAAACC"/>`;
+    function buildResumen(analisis) {
+        const fecha = new Date().toLocaleDateString("es-ES", {
+            year: "numeric",
+            month: "long",
+            day: "numeric"
+        });
 
-                function celda(texto, ancho, opts = {}) {
-                    const { bold = false, center = false, fill = "FFFFFF", color = "000000", sz = 18 } = opts;
-                    return `<w:tc><w:tcPr><w:tcW w:w="${ancho}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${fill}"/><w:tcBorders>${borde}</w:tcBorders></w:tcPr><w:p><w:pPr>${center ? '<w:jc w:val="center"/>' : ""}</w:pPr><w:r><w:rPr>${bold ? "<w:b/>" : ""}<w:color w:val="${color}"/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${xe(texto)}</w:t></w:r></w:p></w:tc>`;
-                }
+        return `
+<w:p><w:r><w:t>Resumen FCT</w:t></w:r></w:p>
+<w:p><w:r><w:t>Generado el ${xe(fecha)}</w:t></w:r></w:p>
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+    }
 
-                function buildResumen(analisis) {
-                    const fecha = new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" });
-                    let body = "";
-                    body += `<w:p><w:pPr><w:pStyle w:val="Titulo"/></w:pPr><w:r><w:t>Resumen FCT</w:t></w:r></w:p>`;
-                    body += `<w:p><w:pPr><w:pStyle w:val="Subtitulo"/></w:pPr><w:r><w:t>Generado el ${xe(fecha)}</w:t></w:r></w:p>`;
-                    body += `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
-                    return body;
-                }
+    function buildAlumnos(datos) {
+        let body = "";
 
-                function buildAlumnos(datos) {
-                    let body = "";
-                    datos.forEach((al, idx) => {
-                        const horas = al.horas || "—";
-                        body += `<w:p><w:pPr><w:pStyle w:val="H1"/></w:pPr><w:r><w:t>${xe(al.nombre)}</w:t></w:r></w:p>`;
-                        body += `<w:p><w:r><w:t>Horas realizadas: ${xe(horas)}</w:t></w:r></w:p>`;
-                        al.semanas.forEach(sem => {
-                            body += `<w:p><w:pPr><w:pStyle w:val="H2"/></w:pPr><w:r><w:t>${xe(sem.label)}</w:t></w:r></w:p>`;
-                            sem.dias.forEach(dia => {
-                                body += `<w:p><w:pPr><w:pStyle w:val="H3"/></w:pPr><w:r><w:t>${xe(dia.titulo)}</w:t></w:r></w:p>`;
-                                if (dia.descripcion) body += `<w:p><w:r><w:t>Descripción: ${xe(dia.descripcion)}</w:t></w:r></w:p>`;
-                                if (dia.orientaciones) body += `<w:p><w:r><w:t>Orientaciones: ${xe(dia.orientaciones)}</w:t></w:r></w:p>`;
-                                if (dia.observaciones) body += `<w:p><w:r><w:t>Observaciones: ${xe(dia.observaciones)}</w:t></w:r></w:p>`;
-                                if (dia.horas) body += `<w:p><w:r><w:t>Horas: ${xe(dia.horas)}</w:t></w:r></w:p>`;
-                            });
-                        });
-                        if (idx < datos.length - 1) body += `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
-                    });
-                    return body;
-                }
+        datos.forEach((al, idx) => {
+            const horas = al.horas || calcHorasDiario(al);
 
-                const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            body += `
+<w:p><w:pPr><w:pStyle w:val="H1"/></w:pPr><w:r><w:t>${xe(al.nombre)}</w:t></w:r></w:p>
+<w:p><w:r><w:t>Horas realizadas: ${xe(horas)}</w:t></w:r></w:p>`;
+
+            al.semanas.forEach(sem => {
+                body += `
+<w:p><w:pPr><w:pStyle w:val="H2"/></w:pPr><w:r><w:t>${xe(sem.label)}</w:t></w:r></w:p>`;
+
+                sem.dias.forEach(dia => {
+                    body += `
+<w:p><w:pPr><w:pStyle w:val="H3"/></w:pPr><w:r><w:t>${xe(dia.titulo)}</w:t></w:r></w:p>`;
+
+                    if (dia.descripcion) {
+                        body += `<w:p><w:r><w:t>Descripción: ${xe(dia.descripcion)}</w:t></w:r></w:p>`;
+                    }
+                    if (dia.orientaciones) {
+                        body += `<w:p><w:r><w:t>Orientaciones: ${xe(dia.orientaciones)}</w:t></w:r></w:p>`;
+                    }
+                    if (dia.observaciones) {
+                        body += `<w:p><w:r><w:t>Observaciones: ${xe(dia.observaciones)}</w:t></w:r></w:p>`;
+                    }
+                    if (dia.horas) {
+                        body += `<w:p><w:r><w:t>Horas: ${xe(dia.horas)}</w:t></w:r></w:p>`;
+                    }
+                });
+            });
+
+            if (idx < datos.length - 1) {
+                body += `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+            }
+        });
+
+        return body;
+    }
+
+    const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
     ${buildResumen(analisis)}
@@ -512,7 +511,7 @@
   </w:body>
 </w:document>`;
 
-                const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
@@ -520,32 +519,36 @@
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
 </Types>`;
 
-                const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>`;
 
-                const wordRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    const wordRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>`;
 
-                const zip = new JSZip();
-                zip.file("[Content_Types].xml", contentTypes);
-                zip.file("_rels/.rels", rels);
-                zip.file("word/document.xml", documentXml);
-                zip.file("word/_rels/document.xml.rels", wordRels);
-                zip.file("word/styles.xml", stylesXml);
+    const zip = new JSZip();
+    zip.file("[Content_Types].xml", contentTypes);
+    zip.file("_rels/.rels", rels);
+    zip.file("word/document.xml", documentXml);
+    zip.file("word/_rels/document.xml.rels", wordRels);
+    zip.file("word/styles.xml", stylesXml);
 
-                log("Empaquetando DOCX");
+    log("Iniciando empaquetado final del DOCX...");
 
-                return await zip.generateAsync({
-                    type: "blob",
-                    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    compression: "DEFLATE",
-                    compressionOptions: { level: 6 }
-                });
-            }
+    return await zip.generateAsync(
+        {
+            type: "blob",
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            compression: "STORE"
+        },
+        metadata => {
+            setEstado(`Generando DOCX... ${Math.round(metadata.percent)}%`);
+        }
+    );
+}
 
             function generarRTF(datos) {
                 log("Generando fallback RTF");
