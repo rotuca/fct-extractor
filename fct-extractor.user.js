@@ -1,13 +1,11 @@
 // ==UserScript==
 // @name         SAÓ FCT - Exportar diarios a DOCX
 // @namespace    https://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Exporta diarios FCT a DOCX o RTF desde el listado de FCTs
 // @match        *://foremp.edu.gva.es/*
-// @author       Manuel Alamar y Roberto Tubilleja
 // @grant        none
 // ==/UserScript==
-
 
 (function () {
     'use strict';
@@ -148,6 +146,11 @@
     function loadScript(url) {
         log("Cargando librería externa: " + url);
         return new Promise((resolve, reject) => {
+            if (window.JSZip) {
+                log("JSZip ya estaba cargado");
+                resolve();
+                return;
+            }
             const s = document.createElement("script");
             s.src = url;
             s.onload = () => {
@@ -161,11 +164,20 @@
 
     function descargar(blob, nombre) {
         log("Preparando descarga: " + nombre);
+
+        const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
+        a.href = url;
         a.download = nombre;
+        a.style.display = "none";
+
+        document.body.appendChild(a);
         a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+
+        setTimeout(() => {
+            a.remove();
+            URL.revokeObjectURL(url);
+        }, 10000);
     }
 
     async function ejecutarExtractor() {
@@ -413,95 +425,328 @@
             log("Generando documento");
 
             async function generarDocx(datos, analisis) {
-    log("Cargando JSZip...");
-    await loadScript("https://unpkg.com/jszip@3.10.1/dist/jszip.min.js");
-    log("JSZip cargado.");
+                log("Cargando JSZip...");
+                await loadScript("https://unpkg.com/jszip@3.10.1/dist/jszip.min.js");
+                log("JSZip cargado.");
 
-    log("Construyendo XML del documento...");
+                log("Construyendo XML del documento...");
 
-    const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:docDefaults><w:rPrDefault><w:rPr>
     <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
     <w:sz w:val="22"/><w:lang w:val="es-ES"/>
   </w:rPr></w:rPrDefault></w:docDefaults>
+
   <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
     <w:name w:val="Normal"/>
     <w:pPr><w:spacing w:after="80"/></w:pPr>
   </w:style>
+
   <w:style w:type="paragraph" w:styleId="H1">
-    <w:name w:val="heading 1"/><w:basedOn w:val="Normal"/>
-    <w:pPr><w:spacing w:before="0" w:after="160"/></w:pPr>
-    <w:rPr><w:b/><w:color w:val="1F3864"/><w:sz w:val="40"/></w:rPr>
+    <w:name w:val="heading 1"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="0" w:after="160"/>
+      <w:pBdr><w:bottom w:val="single" w:sz="8" w:space="4" w:color="1F3864"/></w:pBdr>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+      <w:b/><w:color w:val="1F3864"/><w:sz w:val="40"/>
+    </w:rPr>
   </w:style>
+
   <w:style w:type="paragraph" w:styleId="H2">
-    <w:name w:val="heading 2"/><w:basedOn w:val="Normal"/>
-    <w:pPr><w:spacing w:before="200" w:after="80"/></w:pPr>
-    <w:rPr><w:b/><w:color w:val="2E4B8C"/><w:sz w:val="26"/></w:rPr>
+    <w:name w:val="heading 2"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="200" w:after="80"/>
+      <w:shd w:val="clear" w:color="auto" w:fill="D9E1F2"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+      <w:b/><w:color w:val="2E4B8C"/><w:sz w:val="26"/>
+    </w:rPr>
   </w:style>
+
   <w:style w:type="paragraph" w:styleId="H3">
-    <w:name w:val="heading 3"/><w:basedOn w:val="Normal"/>
+    <w:name w:val="heading 3"/>
+    <w:basedOn w:val="Normal"/>
     <w:pPr><w:spacing w:before="140" w:after="60"/></w:pPr>
-    <w:rPr><w:b/><w:i/><w:color w:val="333355"/><w:sz w:val="22"/></w:rPr>
+    <w:rPr>
+      <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+      <w:b/><w:i/><w:color w:val="333355"/><w:sz w:val="22"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="Campo">
+    <w:name w:val="Campo"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:spacing w:before="40" w:after="40"/><w:ind w:left="440"/></w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+      <w:sz w:val="20"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="Titulo">
+    <w:name w:val="Titulo"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="0" w:after="200"/>
+      <w:jc w:val="center"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+      <w:b/><w:color w:val="1F3864"/><w:sz w:val="52"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="Subtitulo">
+    <w:name w:val="Subtitulo"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="0" w:after="80"/>
+      <w:jc w:val="center"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+      <w:color w:val="555577"/><w:sz w:val="24"/>
+    </w:rPr>
   </w:style>
 </w:styles>`;
 
-    function buildResumen(analisis) {
-        const fecha = new Date().toLocaleDateString("es-ES", {
-            year: "numeric",
-            month: "long",
-            day: "numeric"
-        });
+                const borde = `<w:top w:val="single" w:sz="4" w:space="0" w:color="AAAACC"/>
+<w:bottom w:val="single" w:sz="4" w:space="0" w:color="AAAACC"/>
+<w:left w:val="single" w:sz="4" w:space="0" w:color="AAAACC"/>
+<w:right w:val="single" w:sz="4" w:space="0" w:color="AAAACC"/>`;
 
-        return `
-<w:p><w:r><w:t>Resumen FCT</w:t></w:r></w:p>
-<w:p><w:r><w:t>Generado el ${xe(fecha)}</w:t></w:r></w:p>
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
-    }
+                function celda(texto, ancho, opts = {}) {
+                    const {
+                        bold = false,
+                        center = false,
+                        fill = "FFFFFF",
+                        color = "000000",
+                        sz = 18
+                    } = opts;
 
-    function buildAlumnos(datos) {
-        let body = "";
+                    return `<w:tc>
+  <w:tcPr>
+    <w:tcW w:w="${ancho}" w:type="dxa"/>
+    <w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>
+    <w:tcBorders>${borde}</w:tcBorders>
+    <w:tcMar>
+      <w:top w:w="60" w:type="dxa"/>
+      <w:bottom w:w="60" w:type="dxa"/>
+      <w:left w:w="100" w:type="dxa"/>
+      <w:right w:w="100" w:type="dxa"/>
+    </w:tcMar>
+  </w:tcPr>
+  <w:p>
+    <w:pPr>
+      <w:spacing w:before="0" w:after="0"/>
+      ${center ? '<w:jc w:val="center"/>' : ''}
+    </w:pPr>
+    <w:r>
+      <w:rPr>
+        ${bold ? '<w:b/>' : ''}
+        <w:color w:val="${color}"/>
+        <w:sz w:val="${sz}"/>
+        <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
+      </w:rPr>
+      <w:t xml:space="preserve">${xe(texto)}</w:t>
+    </w:r>
+  </w:p>
+</w:tc>`;
+                }
 
-        datos.forEach((al, idx) => {
-            const horas = al.horas || calcHorasDiario(al);
+                function buildResumen(analisis) {
+                    const fecha = new Date().toLocaleDateString("es-ES", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric"
+                    });
 
-            body += `
-<w:p><w:pPr><w:pStyle w:val="H1"/></w:pPr><w:r><w:t>${xe(al.nombre)}</w:t></w:r></w:p>
-<w:p><w:r><w:t>Horas realizadas: ${xe(horas)}</w:t></w:r></w:p>`;
+                    let body = "";
 
-            al.semanas.forEach(sem => {
-                body += `
-<w:p><w:pPr><w:pStyle w:val="H2"/></w:pPr><w:r><w:t>${xe(sem.label)}</w:t></w:r></w:p>`;
+                    body += `<w:p>
+  <w:pPr><w:pStyle w:val="Titulo"/></w:pPr>
+  <w:r><w:t>Resumen FCT</w:t></w:r>
+</w:p>`;
 
-                sem.dias.forEach(dia => {
-                    body += `
-<w:p><w:pPr><w:pStyle w:val="H3"/></w:pPr><w:r><w:t>${xe(dia.titulo)}</w:t></w:r></w:p>`;
+                    body += `<w:p>
+  <w:pPr><w:pStyle w:val="Subtitulo"/></w:pPr>
+  <w:r><w:t>Generado el ${xe(fecha)}</w:t></w:r>
+</w:p>`;
 
-                    if (dia.descripcion) {
-                        body += `<w:p><w:r><w:t>Descripción: ${xe(dia.descripcion)}</w:t></w:r></w:p>`;
-                    }
-                    if (dia.orientaciones) {
-                        body += `<w:p><w:r><w:t>Orientaciones: ${xe(dia.orientaciones)}</w:t></w:r></w:p>`;
-                    }
-                    if (dia.observaciones) {
-                        body += `<w:p><w:r><w:t>Observaciones: ${xe(dia.observaciones)}</w:t></w:r></w:p>`;
-                    }
-                    if (dia.horas) {
-                        body += `<w:p><w:r><w:t>Horas: ${xe(dia.horas)}</w:t></w:r></w:p>`;
-                    }
-                });
-            });
+                    body += `<w:p><w:pPr><w:spacing w:after="300"/></w:pPr></w:p>`;
 
-            if (idx < datos.length - 1) {
-                body += `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
-            }
-        });
+                    const W = [3600, 1100, 1000, 1200, 1200, 1300];
+                    const total = W.reduce((a, b) => a + b, 0);
 
-        return body;
-    }
+                    const cabeceras = [
+                        "Alumno/a",
+                        "Horas",
+                        "Días",
+                        "Sin campos",
+                        "Repetidos",
+                        "Texto corto"
+                    ];
 
-    const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+                    const cabeceraFila = `<w:tr>
+  ${cabeceras.map((h, i) =>
+      celda(h, W[i], {
+          bold: true,
+          center: i > 0,
+          fill: "1F3864",
+          color: "FFFFFF",
+          sz: 18
+      })
+  ).join("")}
+</w:tr>`;
+
+                    const filasAlumnos = analisis.map((a, rowIdx) => {
+                        const fondo = rowIdx % 2 === 0 ? "F4F6FB" : "FFFFFF";
+                        const alertaColor = n => n > 0 ? "CC2200" : "228800";
+                        const alertaTexto = n => n > 0 ? String(n) : "✓";
+
+                        return `<w:tr>
+  ${celda(a.nombre, W[0], { fill: fondo })}
+  ${celda(a.horas, W[1], { center: true, fill: fondo })}
+  ${celda(String(a.totalDias), W[2], { center: true, fill: fondo })}
+  ${celda(alertaTexto(a.diasSinCampos), W[3], {
+      center: true,
+      fill: fondo,
+      color: alertaColor(a.diasSinCampos),
+      bold: a.diasSinCampos > 0
+  })}
+  ${celda(alertaTexto(a.diasRepetidos), W[4], {
+      center: true,
+      fill: fondo,
+      color: alertaColor(a.diasRepetidos),
+      bold: a.diasRepetidos > 0
+  })}
+  ${celda(alertaTexto(a.diasTextoCorto), W[5], {
+      center: true,
+      fill: fondo,
+      color: alertaColor(a.diasTextoCorto),
+      bold: a.diasTextoCorto > 0
+  })}
+</w:tr>`;
+                    }).join("");
+
+                    body += `<w:tbl>
+  <w:tblPr>
+    <w:tblW w:w="${total}" w:type="dxa"/>
+    <w:tblLayout w:type="fixed"/>
+    <w:tblCellMar>
+      <w:top w:w="0" w:type="dxa"/>
+      <w:bottom w:w="0" w:type="dxa"/>
+    </w:tblCellMar>
+  </w:tblPr>
+  <w:tblGrid>
+    ${W.map(w => `<w:gridCol w:w="${w}"/>`).join("")}
+  </w:tblGrid>
+  ${cabeceraFila}
+  ${filasAlumnos}
+</w:tbl>`;
+
+                    body += `<w:p>
+  <w:pPr><w:spacing w:before="300" w:after="60"/></w:pPr>
+  <w:r><w:rPr><w:b/><w:sz w:val="18"/></w:rPr><w:t>Leyenda:</w:t></w:r>
+</w:p>`;
+
+                    const leyendas = [
+                        ["Sin campos", "Días con horas registradas pero sin texto en descripción/orientaciones/observaciones."],
+                        ["Repetidos", `Días cuya descripción es idéntica o muy similar (>${Math.round(UMBRAL_SIMILITUD * 100)}%) a otro día del mismo alumno.`],
+                        ["Texto corto", `Días con descripción de menos de ${UMBRAL_TEXTO_CORTO} caracteres.`]
+                    ];
+
+                    leyendas.forEach(([lbl, txt]) => {
+                        body += `<w:p>
+  <w:pPr>
+    <w:spacing w:before="40" w:after="40"/>
+    <w:ind w:left="440"/>
+  </w:pPr>
+  <w:r>
+    <w:rPr><w:b/><w:sz w:val="18"/></w:rPr>
+    <w:t xml:space="preserve">${xe(lbl)}: </w:t>
+  </w:r>
+  <w:r>
+    <w:rPr><w:sz w:val="18"/></w:rPr>
+    <w:t>${xe(txt)}</w:t>
+  </w:r>
+</w:p>`;
+                    });
+
+                    body += `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+
+                    return body;
+                }
+
+                function buildAlumnos(datos) {
+                    let body = "";
+
+                    datos.forEach((al, idx) => {
+                        const horas = al.horas || calcHorasDiario(al);
+
+                        body += `<w:p><w:pPr><w:pStyle w:val="H1"/></w:pPr><w:r><w:t>${xe(al.nombre)}</w:t></w:r></w:p>`;
+                        body += `<w:p><w:pPr><w:spacing w:after="200"/></w:pPr>
+<w:r><w:rPr><w:b/><w:color w:val="444444"/></w:rPr><w:t xml:space="preserve">Horas realizadas: </w:t></w:r>
+<w:r><w:t xml:space="preserve">${xe(horas)}</w:t></w:r>
+<w:r><w:rPr><w:color w:val="999999"/><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">   (idFct: ${xe(al.idFct)})</w:t></w:r></w:p>`;
+
+                        if (!al.semanas.length) {
+                            body += `<w:p><w:r><w:rPr><w:i/><w:color w:val="888888"/></w:rPr><w:t>Sin entradas registradas en el diario.</w:t></w:r></w:p>`;
+                        }
+
+                        al.semanas.forEach(sem => {
+                            body += `<w:p><w:pPr><w:pStyle w:val="H2"/></w:pPr><w:r><w:t>${xe(sem.label)}</w:t></w:r></w:p>`;
+
+                            sem.dias.forEach(dia => {
+                                body += `<w:p><w:pPr><w:pStyle w:val="H3"/></w:pPr><w:r><w:t>${xe(dia.titulo)}</w:t></w:r></w:p>`;
+
+                                if (dia.sinCampos) {
+                                    body += `<w:p><w:pPr><w:spacing w:before="40" w:after="40"/><w:ind w:left="440"/></w:pPr>
+<w:r><w:rPr><w:i/><w:color w:val="CC2200"/><w:sz w:val="20"/></w:rPr>
+<w:t xml:space="preserve">⚠ Horas registradas (${xe(dia.horas)}h) pero sin descripción rellenada.</w:t></w:r></w:p>`;
+                                    return;
+                                }
+
+                                const colorDesc = dia.esRepetido ? "CC6600" : dia.esCorto ? "996600" : "000000";
+                                const sufijo = dia.esRepetido ? "  ⚠ texto repetido" : dia.esCorto ? "  ⚠ texto muy corto" : "";
+
+                                [
+                                    ["Descripción actividad", dia.descripcion, colorDesc, sufijo],
+                                    ["Orientaciones", dia.orientaciones, "000000", ""],
+                                    ["Observaciones", dia.observaciones, "000000", ""]
+                                ].forEach(([lbl, val, col, suf]) => {
+                                    if (!val) return;
+
+                                    body += `<w:p><w:pPr><w:pStyle w:val="Campo"/></w:pPr>
+<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${xe(lbl)}: </w:t></w:r>
+<w:r><w:rPr><w:color w:val="${col}"/></w:rPr><w:t xml:space="preserve">${xe(val)}</w:t></w:r>
+${suf ? `<w:r><w:rPr><w:i/><w:color w:val="${col}"/><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">${xe(suf)}</w:t></w:r>` : ""}
+</w:p>`;
+                                });
+
+                                body += `<w:p><w:pPr><w:pStyle w:val="Campo"/></w:pPr>
+<w:r><w:rPr><w:b/><w:color w:val="555555"/></w:rPr><w:t xml:space="preserve">Horas: </w:t></w:r>
+<w:r><w:t>${xe(dia.horas)}</w:t></w:r></w:p>`;
+                            });
+                        });
+
+                        if (idx < datos.length - 1) {
+                            body += `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+                        }
+                    });
+
+                    return body;
+                }
+
+                const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+            xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
     ${buildResumen(analisis)}
     ${buildAlumnos(datos)}
@@ -512,64 +757,112 @@
   </w:body>
 </w:document>`;
 
-    const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>
 </Types>`;
 
-    const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>`;
 
-    const wordRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                const wordRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>
 </Relationships>`;
 
-    const zip = new JSZip();
-    zip.file("[Content_Types].xml", contentTypes);
-    zip.file("_rels/.rels", rels);
-    zip.file("word/document.xml", documentXml);
-    zip.file("word/_rels/document.xml.rels", wordRels);
-    zip.file("word/styles.xml", stylesXml);
+                const settings = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>`;
 
-    log("Iniciando empaquetado final del DOCX...");
+                const zip = new JSZip();
+                zip.file("[Content_Types].xml", contentTypes);
+                zip.file("_rels/.rels", rels);
+                zip.file("word/document.xml", documentXml);
+                zip.file("word/_rels/document.xml.rels", wordRels);
+                zip.file("word/styles.xml", stylesXml);
+                zip.file("word/settings.xml", settings);
 
-    return await zip.generateAsync(
-        {
-            type: "blob",
-            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            compression: "STORE"
-        },
-        metadata => {
-            setEstado(`Generando DOCX... ${Math.round(metadata.percent)}%`);
-        }
-    );
-}
+                log("Iniciando empaquetado final del DOCX...");
 
-            function generarRTF(datos) {
+                return await zip.generateAsync(
+                    {
+                        type: "blob",
+                        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        compression: "STORE"
+                    },
+                    metadata => {
+                        setEstado(`Generando DOCX... ${Math.round(metadata.percent)}%`);
+                    }
+                );
+            }
+
+            function generarRTF(datos, analisis) {
                 log("Generando fallback RTF");
-                let rtf = "{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Arial;}}\\f0\\fs22\n";
+
+                let rtf = "{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang3082\n";
+                rtf += "{\\fonttbl{\\f0\\fswiss\\fcharset0 Arial;}}\n";
+                rtf += "{\\colortbl ;\\red31\\green56\\blue100;\\red46\\green75\\blue140;\\red80\\green80\\blue100;\\red180\\green30\\blue0;\\red160\\green90\\blue0;\\red20\\green120\\blue20;}\n";
+                rtf += "\\f0\\fs22\\widowctrl\\hyphauto\n\n";
+
+                rtf += `\\pard\\sb0\\sa200\\qc {\\b\\fs52\\cf1 Resumen FCT}\\par\n`;
+                rtf += `\\pard\\sb0\\sa300\\qc {\\fs24\\cf3 Generado el ${rtfEsc(new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" }))}}\\par\n`;
+                rtf += `\\pard\\sb100\\sa0 {\\b\\cf1 Alumno/a}\\tab{\\b\\cf1 Horas}\\tab{\\b\\cf1 D\\'edas}\\tab{\\b\\cf1 Sin campos}\\tab{\\b\\cf1 Repetidos}\\tab{\\b\\cf1 Texto corto}\\par\n`;
+                rtf += `\\pard\\sb0\\sa0 {\\cf3 ${"─".repeat(80)}}\\par\n`;
+
+                analisis.forEach(a => {
+                    const alerta = n => n > 0 ? `{\\b\\cf4 ${n}}` : `{\\cf6 ok}`;
+                    rtf += `\\pard\\sb0\\sa0 {${rtfEsc(a.nombre)}}\\tab{${rtfEsc(a.horas)}}\\tab{${a.totalDias}}\\tab${alerta(a.diasSinCampos)}\\tab${alerta(a.diasRepetidos)}\\tab${alerta(a.diasTextoCorto)}\\par\n`;
+                });
+
+                rtf += `\\pard\\sb200\\sa200 {\\fs18\\cf3 ${rtfEsc(`Sin campos: días con horas pero sin descripción. Repetidos: descripción similar a otro día. Texto corto: menos de ${UMBRAL_TEXTO_CORTO} caracteres.`)}}\\par\n`;
+                rtf += "\\page\n";
+
                 datos.forEach((al, idx) => {
-                    rtf += `\\b ${rtfEsc(al.nombre)}\\b0\\par\n`;
-                    rtf += `Horas realizadas: ${rtfEsc(al.horas || "—")}\\par\n`;
+                    const horas = al.horas || calcHorasDiario(al);
+
+                    rtf += `\\pard\\sb0\\sa160\\brdrb\\brdrs\\brdrw10\\brdrcf1 {\\b\\fs40\\cf1 ${rtfEsc(al.nombre)}}\\par\n`;
+                    rtf += `\\pard\\sb0\\sa200 {\\b\\cf3 Horas realizadas: }{${rtfEsc(horas)}}  {\\fs18\\cf3 (idFct: ${al.idFct})}\\par\n`;
+
+                    if (!al.semanas.length) {
+                        rtf += `\\pard\\sb0\\sa100 {\\i\\cf3 Sin entradas registradas.}\\par\n`;
+                    }
+
                     al.semanas.forEach(sem => {
-                        rtf += `\\i ${rtfEsc(sem.label)}\\i0\\par\n`;
+                        rtf += `\\pard\\sb200\\sa80 {\\b\\fs26\\cf2 ${rtfEsc(sem.label)}}\\par\n`;
+
                         sem.dias.forEach(dia => {
-                            rtf += `${rtfEsc(dia.titulo)}\\par\n`;
-                            if (dia.descripcion) rtf += `Descripción: ${rtfEsc(dia.descripcion)}\\par\n`;
-                            if (dia.orientaciones) rtf += `Orientaciones: ${rtfEsc(dia.orientaciones)}\\par\n`;
-                            if (dia.observaciones) rtf += `Observaciones: ${rtfEsc(dia.observaciones)}\\par\n`;
-                            if (dia.horas) rtf += `Horas: ${rtfEsc(dia.horas)}\\par\n`;
-                            rtf += `\\par\n`;
+                            rtf += `\\pard\\sb140\\sa60 {\\b\\i\\cf3 ${rtfEsc(dia.titulo)}}\\par\n`;
+
+                            if (dia.sinCampos) {
+                                rtf += `\\pard\\sb40\\sa40\\li440 {\\i\\cf4 ${rtfEsc(`Horas registradas (${dia.horas}h) pero sin descripción.`)}}\\par\n`;
+                                return;
+                            }
+
+                            const colDesc = dia.esRepetido ? "\\cf4" : dia.esCorto ? "\\cf5" : "";
+                            const sufDesc = dia.esRepetido ? "  {\\i\\cf4 texto repetido}" : dia.esCorto ? "  {\\i\\cf5 texto corto}" : "";
+
+                            [
+                                ["Descripción actividad", dia.descripcion, colDesc, sufDesc],
+                                ["Orientaciones", dia.orientaciones, "", ""],
+                                ["Observaciones", dia.observaciones, "", ""]
+                            ].forEach(([lbl, val, col, suf]) => {
+                                if (!val) return;
+                                rtf += `\\pard\\sb40\\sa40\\li440 {\\b ${lbl}: }{${col}${rtfEsc(val)}}${suf}\\par\n`;
+                            });
+
+                            rtf += `\\pard\\sb40\\sa40\\li440 {\\b\\cf3 Horas: }{${rtfEsc(dia.horas || "—")}}\\par\n`;
                         });
                     });
+
                     if (idx < datos.length - 1) rtf += "\\page\n";
                 });
+
                 rtf += "}";
                 return new Blob([rtf], { type: "application/rtf" });
             }
@@ -585,7 +878,7 @@
                 setEstado(`Completado. Alumnos: ${datos.length} | Formato: DOCX`);
             } catch (e) {
                 warn("Fallo al generar DOCX, pasando a RTF");
-                const blob = generarRTF(datos);
+                const blob = generarRTF(datos, analisis);
                 descargar(blob, `diarios_fct_${fecha}.rtf`);
                 log(`RTF descargado: diarios_fct_${fecha}.rtf`);
                 setEstado(`Completado. Alumnos: ${datos.length} | Formato: RTF`);
