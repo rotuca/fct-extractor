@@ -3,7 +3,7 @@
 // @namespace    https://github.com/TU_USUARIO/fct-extractor
 // @version      1.0.0
 // @description  Extrae los diarios FCT del aula virtual y genera un DOCX con análisis de calidad
-// @author       TU_NOMBRE
+// @author       Roberto Tubilleja Calvo
 // @match        *://*/*
 // @grant        none
 // @require      https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js
