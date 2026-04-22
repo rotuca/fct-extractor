@@ -6,6 +6,7 @@
 // @match        *://foremp.edu.gva.es/*
 // @author       Manuel Alamar y Roberto Tubilleja
 // @grant        none
+// @run-at document-idle
 // ==/UserScript==
 
 (function () {
